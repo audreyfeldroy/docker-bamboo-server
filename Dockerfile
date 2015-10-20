@@ -1,38 +1,51 @@
-FROM java
+FROM java:8
 MAINTAINER Audrey Roy Greenfeld (@audreyr)
 
-# Define bamboo version and install dir
+# Config vars
+ENV BAMBOO_HOME /var/atlassian/bamboo
+ENV BAMBOO_INSTALL /opt/atlassian/bamboo
 ENV BAMBOO_VERSION 5.9.7
-ENV BAMBOO_HOME /home/bamboo/
-ENV BAMBOO_INSTALLATION /opt/atlassian/bamboo
+
+# Install Atlassian Bamboo and helper tools and setup initial home
+# directory structure.
+RUN set -x \
+    && apt-get update --quiet \
+    && apt-get install --quiet --yes --no-install-recommends libtcnative-1 xmlstarlet \
+    && apt-get clean \
+    && mkdir -p                "${BAMBOO_HOME}" \
+    && mkdir -p                "${BAMBOO_HOME}/caches/indexes" \
+    && chmod -R 700            "${BAMBOO_HOME}" \
+    && chown -R daemon:daemon  "${BAMBOO_HOME}" \
+    && mkdir -p                "${BAMBOO_INSTALL}/conf/Catalina"
+
+# Download and install Bamboo Server
+# TODO: Combine these commands to reduce image size. They're separate for debugging purposes only.
+RUN curl -SL https://www.atlassian.com/software/bamboo/downloads/binary/atlassian-bamboo-$BAMBOO_VERSION.tar.gz -o /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz
+
+# Extract and make owned by daemon
+RUN set -x \
+    && tar zxvf /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz -C $BAMBOO_INSTALL --strip=1 --no-same-owner \
+    && rm /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz \
+    && chmod -R 700            "${BAMBOO_INSTALL}" \
+    && chown -R daemon:daemon  "${BAMBOO_INSTALL}"
+
+
+# Use the default unprivileged account. This could be considered bad practice
+# on systems where multiple processes end up being executed by 'daemon' but
+# here we only ever run one process anyway.
+USER daemon:daemon
 
 # Expose web and agent ports
 EXPOSE 8085
 EXPOSE 54663
 
-# Copy bamboo init script
-COPY bamboo.sh /etc/init.d/bamboo
+# Set volume mount points for installation and home directory. Changes to the
+# home directory needs to be persisted as well as parts of the installation
+# directory due to eg. logs.
+VOLUME ["/var/atlassian/bamboo"]
 
-# Make the init script executable
-RUN chmod \+x /etc/init.d/bamboo
+# Set the default working directory as the installation directory.
+WORKDIR ${BAMBOO_HOME}
 
-# Place symlinks in the run-level directories to start and stop this script automatically
-RUN update-rc.d bamboo defaults
-
-# Create a bamboo user account which will be used to run Bamboo
-RUN useradd --create-home -c "Bamboo role account" bamboo
-
-# Have bamboo user own the dir where Bamboo is installed
-RUN mkdir -p $BAMBOO_INSTALLATION
-RUN chown bamboo: $BAMBOO_INSTALLATION
-
-# Log in as the bamboo user to install Bamboo
-RUN su - bamboo
-
-# Download and install Bamboo Server
-# TODO: Combine these commands to reduce image size. They're separate for debugging purposes only.
-RUN curl -SL https://www.atlassian.com/software/bamboo/downloads/binary/atlassian-bamboo-$BAMBOO_VERSION.tar.gz -o /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz
-RUN cd $BAMBOO_INSTALLATION \
-  && tar zxvf /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz \
-  && rm /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz \
-  && ln -s atlassian-bamboo-$BAMBOO_VERSION/ current
+# Run Atlassian JIRA as a foreground process by default.
+CMD ["/opt/atlassian/bamboo/bin/start-bamboo.sh", "-fg"]
