@@ -12,6 +12,6 @@ EXPOSE 54663
 # Download and install Bamboo Server
 RUN curl -SL https://www.atlassian.com/software/bamboo/downloads/binary/atlassian-bamboo-$BAMBOO_VERSION.tar.gz -o bamboo.tar.gz
 RUN mkdir $BAMBOO_HOME \
-  && tar xzvf bamboo.tar.gz -C $BAMBOO_HOME \
+  && tar xzvf bamboo.tar.gz -C $BAMBOO_HOME --strip=1 \
   && rm bamboo.tar.gz
-RUN $BAMBOO_HOME/atlassian-bamboo-$BAMBOO_VERSION/bin/start-bamboo.sh
+RUN $BAMBOO_HOME/bin/start-bamboo.sh
