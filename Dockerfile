@@ -17,13 +17,7 @@ RUN set -x \
     && chmod -R 700            "${BAMBOO_HOME}" \
     && chown -R daemon:daemon  "${BAMBOO_HOME}" \
     && mkdir -p                "${BAMBOO_INSTALL}/conf/Catalina"
-
-# Download and install Bamboo Server
-# TODO: Combine these commands to reduce image size. They're separate for debugging purposes only.
-RUN curl -SL https://www.atlassian.com/software/bamboo/downloads/binary/atlassian-bamboo-$BAMBOO_VERSION.tar.gz -o /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz
-
-# Extract and make owned by daemon
-RUN set -x \
+    && curl -SL https://www.atlassian.com/software/bamboo/downloads/binary/atlassian-bamboo-$BAMBOO_VERSION.tar.gz -o /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz \
     && tar zxvf /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz -C $BAMBOO_INSTALL --strip=1 --no-same-owner \
     && rm /tmp/atlassian-bamboo-$BAMBOO_VERSION.tar.gz \
     && chmod -R 700            "${BAMBOO_INSTALL}" \
